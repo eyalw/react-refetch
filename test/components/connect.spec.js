@@ -13,11 +13,9 @@ describe('React', () => {
     before(() => {
       window.fetch = (request) => {
         fetchSpies.forEach((spy) => spy())
-        return new Promise((resolve, reject) => {
+        return new Promise((resolve) => {
           if (request.url == '/error') {
             resolve(new window.Response(JSON.stringify({ error: 'e', id: 'not_found' }), { status: 404 }))
-          } else if (request.url == '/reject') {
-            reject(new TypeError('response rejected'))
           } else {
             resolve(new window.Response(JSON.stringify({ T: 't' }), { status: 200, headers: { A: 'a', B: 'b' } }))
           }
@@ -45,7 +43,6 @@ describe('React', () => {
           }
         },
         errorFetch: `/error`,
-        rejectFetch: `/reject`,
         testFunc: (arg1, arg2) => ({
           deferredFetch: `/${foo}/${baz}/deferred/${arg1}/${arg2}`
         })
@@ -72,11 +69,6 @@ describe('React', () => {
         fulfilled: false, pending: true, refreshing: false, reason: null, rejected: false, settled: false, value: null, meta: {}
       })
       expect(stubPending.props.errorFetch.constructor).toEqual(PromiseState)
-
-      expect(stubPending.props.rejectFetch).toIncludeKeyValues({
-        fulfilled: false, pending: true, refreshing: false, reason: null, rejected: false, settled: false, value: null, meta: {}
-      })
-      expect(stubPending.props.rejectFetch.constructor).toEqual(PromiseState)
 
       expect(stubPending.props.testFunc).toBeA('function')
       expect(stubPending.props.deferredFetch).toEqual(undefined)
@@ -108,9 +100,6 @@ describe('React', () => {
         expect(stubFulfilled.props.errorFetch.meta.request.headers.get('Accept')).toEqual('application/json')
         expect(stubFulfilled.props.errorFetch.meta.response.status).toEqual(404)
         expect(stubFulfilled.props.errorFetch.meta.response.bodyUsed).toEqual(true)
-        expect(stubFulfilled.props.rejectFetch).toIncludeKeyValues({
-          fulfilled: false, pending: false, refreshing: false, reason: { message: 'response rejected' }, rejected: true, settled: true, value: null
-        })
 
         done()
       })
@@ -425,10 +414,6 @@ describe('React', () => {
         firstFetch: {
           url: `/error`,
           catch: (v) => `/second/${baz}/${v.cause.error}`
-        },
-        secondFetch: {
-          url: `/reject`,
-          catch: () => `/second/${baz}/e`
         }
       }))
       class Container extends Component {
@@ -448,20 +433,9 @@ describe('React', () => {
         { fulfilled: false, pending: true, reason: null, refreshing: false, rejected: false, settled: false, value: null }
       )
 
-      expect(decorated.state.mappings.secondFetch.url).toEqual('/reject')
-      expect(decorated.state.mappings.secondFetch.catch).toBeA('function')
-      expect(decorated.state.data.secondFetch).toIncludeKeyValues(
-        { fulfilled: false, pending: true, reason: null, refreshing: false, rejected: false, settled: false, value: null }
-      )
-
       setImmediate(() => {
         expect(decorated.state.mappings.firstFetch.url).toEqual('/second/42/e')
         expect(decorated.state.data.firstFetch).toIncludeKeyValues(
-          { fulfilled: true, pending: false, reason: null, refreshing: false, rejected: false, settled: true, value: { 'T': 't' } }
-        )
-
-        expect(decorated.state.mappings.secondFetch.url).toEqual('/second/42/e')
-        expect(decorated.state.data.secondFetch).toIncludeKeyValues(
           { fulfilled: true, pending: false, reason: null, refreshing: false, rejected: false, settled: true, value: { 'T': 't' } }
         )
 
@@ -528,12 +502,6 @@ describe('React', () => {
           andCatch: () => ({
             catchFetch: `/second/${baz}`
           })
-        },
-        secondFetch: {
-          url: `/reject`,
-          andCatch: () => ({
-            catchSecondFetch: `/second/${baz}`
-          })
         }
       }))
       class Container extends Component {
@@ -556,15 +524,6 @@ describe('React', () => {
       expect(decorated.state.mappings.catchFetch).toEqual(undefined)
       expect(decorated.state.data.catchFetch).toEqual(undefined)
 
-      expect(decorated.state.mappings.secondFetch.url).toEqual('/reject')
-      expect(decorated.state.mappings.secondFetch.andCatch).toBeA('function')
-      expect(decorated.state.data.secondFetch).toIncludeKeyValues(
-        { fulfilled: false, pending: true, reason: null, refreshing: false, rejected: false, settled: false, value: null }
-      )
-
-      expect(decorated.state.mappings.catchSecondFetch).toEqual(undefined)
-      expect(decorated.state.data.catchSecondFetch).toEqual(undefined)
-
       setImmediate(() => {
         expect(decorated.state.data.firstFetch).toIncludeKeyValues(
           { fulfilled: false, pending: false, refreshing: false, rejected: true, settled: true, value: null }
@@ -574,16 +533,6 @@ describe('React', () => {
 
         expect(decorated.state.mappings.catchFetch.url).toEqual('/second/42')
         expect(decorated.state.data.catchFetch).toIncludeKeyValues(
-          { fulfilled: true, pending: false, reason: null, refreshing: false, rejected: false, settled: true, value: { 'T': 't' } }
-        )
-
-        expect(decorated.state.data.secondFetch).toIncludeKeyValues(
-          { fulfilled: false, pending: false, refreshing: false, rejected: true, settled: true, value: null }
-        )
-        expect(decorated.state.data.secondFetch.reason).toBeA(Error)
-
-        expect(decorated.state.mappings.catchSecondFetch.url).toEqual('/second/42')
-        expect(decorated.state.data.catchSecondFetch).toIncludeKeyValues(
           { fulfilled: true, pending: false, reason: null, refreshing: false, rejected: false, settled: true, value: { 'T': 't' } }
         )
 
